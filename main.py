@@ -1,7 +1,7 @@
 import time
 
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel # pydanticはとりあえず必要っぽい
 
 from searchapi import query_gemini
 
@@ -24,7 +24,7 @@ class SingleRequest(BaseModel):
 
 
 @app.get("/")
-def index(name: str = "匿名"):
+def index(name: str ="Sora Yonezawa", number: int = 10): # type hint -> string 
     """
     ルートエンドポイント
 
@@ -34,7 +34,10 @@ def index(name: str = "匿名"):
     戻り値:
     - 挨拶メッセージ
     """
-    return f"こんにちは、{name}さん"
+    return f"こんにちは、{name}さん {number}番目です"
+    # http://127.0.0.1:8000/?name=Sora で名前をアクセスできるらしい
+    # これはすごい
+
 
 
 @app.post("/single")
@@ -65,8 +68,8 @@ def single(data: SingleRequest):
 
     start_time = time.time()
 
-    options = options
-    if options is None:
+    # options = options # これは間違いらしい
+    if options is None: # ここはオプションがない場合のデフォルト値を設定している
         model_name = "gemini-2.0-flash"
         max_tokens = 1024
     else:

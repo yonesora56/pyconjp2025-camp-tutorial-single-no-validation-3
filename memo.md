@@ -1,0 +1,17 @@
+- 環境構築をしっかりしよう by 寺田さん
+- 環境構築ができると成長が早い
+- fastapiはバックエンドに特化している
+- ローカルホストに飛んだあと、`http://127.0.0.1:8000` のあとに`http://127.0.0.1:8000/docs`とやるとAPI referenceが出てくる
+- 良い点：エラーメッセージをちゃんと出しやすい
+- `uvicorn main:app --reload` でmain.pyの変更を勝手に反映させてreloadしてくれる
+- python では型ヒントをなるべくつけよう
+- 最近だと型ヒントを書くようになったのでdocstringを書かなくてもいいんじゃないかという議論があるらしい
+- `uv run ruff check` で勝手にスペースが空いたり反映できる
+- [ruff](https://docs.astral.sh/ruff/)が最近がデファクトになってきているらしい
+- [Pydantic](https://docs.pydantic.dev/latest/)というツールがあるらしい
+- [Enum型について](https://fastapi.tiangolo.com/ja/tutorial/path-params/#enum)
+- [おすすめ：エキスパートPythonプログラミング 改訂4版](https://www.kadokawa.co.jp/product/302304004673/)
+- https://fastapi.tiangolo.com/tutorial/query-params/?h=optional+para#optional-parameters
+- pythonにおいてはbool関数は、0はfalseになる
+- bool型のTrue はint型の`1`らしい
+- 
