@@ -14,4 +14,9 @@
 - https://fastapi.tiangolo.com/tutorial/query-params/?h=optional+para#optional-parameters
 - pythonにおいてはbool関数は、0はfalseになる
 - bool型のTrue はint型の`1`らしい
+- `...` は elipsisと呼ぶらしい
+- https://gist.github.com/promto-c/f51cc2c0eb8742ce5cc3e65601df2deb
+- 循環参照を防ぐためにはimportの順番で解消できるが、現在importの並べ方にうるさいのでそのハックがあまりできないため、`main.py`に全て書かずにファイルを分割したようだ
+- `searchapi.py`の中にある複数のモデルを非同期で投げることができる `複数の問い合わせを非同期に実行する `agrid_query_gemini` 関数`があるらしい
+- 非同期だと一気にバッとできるらしい
 - 
