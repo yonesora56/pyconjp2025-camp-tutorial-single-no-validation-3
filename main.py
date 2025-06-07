@@ -1,9 +1,21 @@
 import time
 
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel # pydanticはとりあえず必要っぽい
 
-from searchapi import query_gemini
+from models import (
+    ApiResponse,
+    MultiQueryItem,
+    MultiQueryResponse,
+    MultiRequest,
+    QueryResponse,
+    SingleRequest,
+)
+from searchapi import (
+    AVAILABLE_MODELS,
+    agrid_query_gemini,
+    grid_query_gemini,
+    query_gemini,
+)
 
 app = FastAPI(
     title="PyCon JP 2025 Camp Tutorial API",
@@ -15,16 +27,8 @@ app = FastAPI(
 AUTH_KEY = "pyconjp2025"
 
 
-class SingleRequest(BaseModel):
-    """単一の問い合わせリクエスト"""
-
-    key: str
-    q: str
-    options: dict | None = None
-
-
 @app.get("/")
-def index(name: str ="Sora Yonezawa", number: int = 10): # type hint -> string 
+def index(name: str = "匿名"):
     """
     ルートエンドポイント
 
@@ -34,53 +38,49 @@ def index(name: str ="Sora Yonezawa", number: int = 10): # type hint -> string
     戻り値:
     - 挨拶メッセージ
     """
-    return f"こんにちは、{name}さん {number}番目です"
-    # http://127.0.0.1:8000/?name=Sora で名前をアクセスできるらしい
-    # これはすごい
+    return f"こんにちは、{name}さん"
 
 
-
-@app.post("/single")
+@app.post("/single", response_model=ApiResponse)
 def single(data: SingleRequest):
     """
     単一の問い合わせを行うエンドポイント
 
     引数:
-    - key: 認証キー
-    - q: 質問文字列
-    - options: オプション設定（省略可能）
-      - model: モデル名（デフォルト: gemini-2.0-flash）
-      - max_tokens: 最大トークン数（デフォルト: 1024）
+    - request: SingleRequestモデルのリクエスト
+      - key: 認証キー
+      - q: 質問文字列
+      - options: オプション設定（省略可能）
+        - model: モデル名（デフォルト: gemini-2.0-flash）
+        - max_tokens: 最大トークン数（デフォルト: 1024）
 
     戻り値:
-    - data: QueryResponse
-      - result: 回答文字列
-      - args: QueryArgs型の辞書
-    - meta:
-      - duration: 処理時間（秒）
+    - ApiResponse: API応答の基本形式
+      - data: QueryResponse
+        - result: 回答文字列
+        - args: QueryArgs型の辞書
+      - meta:
+        - duration: 処理時間（秒）
     """
-    key = data.key
-    q = data.q
-    options = data.options
     # 認証キーの確認
-    if key != AUTH_KEY:
+    if data.key != AUTH_KEY:
         raise HTTPException(status_code=401, detail="認証キーが無効です")
 
     start_time = time.time()
 
-    # options = options # これは間違いらしい
-    if options is None: # ここはオプションがない場合のデフォルト値を設定している
-        model_name = "gemini-2.0-flash"
+    options = data.options
+    if options is None:
+        model_name = AVAILABLE_MODELS.GEMINI_2_0_FLASH
         max_tokens = 1024
     else:
-        model_name = options.get("model", "gemini-2.0-flash")
-        max_tokens = options.get("max_tokens", 1024)
+        model_name = options.model
+        max_tokens = options.max_tokens
     try:
         # Gemini APIに問い合わせ
         result, args = query_gemini(
-            q=q,
+            q=data.q,
             role="あなたは親切なアシスタントです。",
-            model_name=model_name,
+            model_name=model_name, 
             temperature=0.7,
             max_tokens=max_tokens,
         )
@@ -92,17 +92,146 @@ def single(data: SingleRequest):
         duration = end_time - start_time
 
         # 応答を作成
-        response = {
-            "data": {
-                "result": result,
-                "args": {
-                    "query": q,
-                    "role": "あなたは親切なアシスタントです。",
-                    "model_name": model_name,
-                    "temperature": 0.7,
-                    "max_tokens": max_tokens,
-                },
-            },
-            "meta": {"duration": duration},
-        }
+        response = ApiResponse(
+            data=QueryResponse(
+                result=result,
+                args=args,
+            ),
+            meta={"duration": duration},
+        )
+
+        return response
+
+
+@app.post("/multi", response_model=MultiQueryResponse)
+def multi(data: MultiRequest):
+    """
+    複数の問い合わせを行うエンドポイント
+
+    引数:
+    - request: MultiRequestモデルのリクエスト
+      - key: 認証キー
+      - q: 質問文字列
+      - options: オプション設定
+        - models: モデル名のリスト（デフォルト: [gemini-2.0-flash]）
+        - roles: 役割のリスト（デフォルト: ["あなたは親切なアシスタントです。"]）
+        - max_tokens: 最大トークン数（デフォルト: 1024）
+
+    戻り値:
+    - MultiQueryResponse: 複数の応答を含むAPI応答
+      - data: MultiQueryItemのリスト
+        - id: 回答のID（1から始まるインデックス）
+        - result: 回答文字列
+        - args: QueryArgs型の辞書
+      - meta:
+        - duration: 処理時間（秒）
+    """
+    # 認証キーの確認
+    if data.key != AUTH_KEY:
+        raise HTTPException(status_code=401, detail="認証キーが無効です")
+
+    start_time = time.time()
+
+    model_names = tuple(data.options.models)
+    roles = tuple(data.options.roles)
+    max_tokens = data.options.max_tokens
+
+    try:
+        # grid_query_geminiを呼び出して、複数の組み合わせで問い合わせる
+        results = grid_query_gemini(
+            q=data.q,
+            roles=roles,
+            model_names=model_names,
+            temperature=0.7,
+            max_tokens=max_tokens,
+        )
+    except ValueError as e:
+        # Gemini APIの環境変数が設定されていない場合など
+        raise HTTPException(status_code=500, detail=str(e))
+    else:
+        # 回答をMultiQueryItemに変換
+        multi_query_items = []
+        for idx, (result, args) in enumerate(results, 1):
+            multi_query_items.append(
+                MultiQueryItem(
+                    id=idx,
+                    result=result,
+                    args=args,
+                )
+            )
+        end_time = time.time()
+        duration = end_time - start_time
+
+        # 応答を作成
+        response = MultiQueryResponse(
+            data=multi_query_items,
+            meta={"duration": duration},
+        )
+        return response
+
+
+@app.post("/multi-async", response_model=MultiQueryResponse)
+async def multi_async(data: MultiRequest):
+    """
+    複数の問い合わせを非同期で行うエンドポイント
+
+    引数:
+    - request: MultiRequestモデルのリクエスト
+      - key: 認証キー
+      - q: 質問文字列
+      - options: オプション設定
+        - models: モデル名のリスト（デフォルト: [gemini-2.0-flash]）
+        - roles: 役割のリスト（デフォルト: ["あなたは親切なアシスタントです。"]）
+        - max_tokens: 最大トークン数（デフォルト: 1024）
+
+    戻り値:
+    - MultiQueryResponse: 複数の応答を含むAPI応答
+      - data: MultiQueryItemのリスト
+        - id: 回答のID（1から始まるインデックス）
+        - result: 回答文字列
+        - args: QueryArgs型の辞書
+      - meta:
+        - duration: 処理時間（秒）
+    """
+    # 認証キーの確認
+    if data.key != AUTH_KEY:
+        raise HTTPException(status_code=401, detail="認証キーが無効です")
+
+    start_time = time.time()
+
+    model_names = tuple(data.options.models)
+    roles = tuple(data.options.roles)
+    max_tokens = data.options.max_tokens
+
+    try:
+        # agrid_query_geminiを呼び出して、複数の組み合わせで非同期に問い合わせる
+        results = await agrid_query_gemini(
+            q=data.q,
+            roles=roles,
+            model_names=model_names,
+            temperature=0.7,
+            max_tokens=max_tokens,
+        )
+    except ValueError as e:
+        # Gemini APIの環境変数が設定されていない場合など
+        raise HTTPException(status_code=500, detail=str(e))
+    else:
+        # 回答をMultiQueryItemに変換
+        multi_query_items = []
+        for idx, (result, args) in enumerate(results, 1):
+            multi_query_items.append(
+                MultiQueryItem(
+                    id=idx,
+                    result=result,
+                    args=args,
+                )
+            )
+        end_time = time.time()
+        duration = end_time - start_time
+
+        # 応答を作成
+        response = MultiQueryResponse(
+            data=multi_query_items,
+            meta={"duration": duration},
+        )
         return response
