@@ -20,6 +20,8 @@
 - `searchapi.py`の中にある複数のモデルを非同期で投げることができる `複数の問い合わせを非同期に実行する `agrid_query_gemini` 関数`があるらしい
 - 非同期だと一気にバッとできるらしい
 - `uv run ruff check --fix`
+- これでフロントエンドをstremlitなどで作る
+- 
 
 &nbsp;
 
