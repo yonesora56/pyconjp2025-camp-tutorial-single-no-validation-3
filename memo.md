@@ -20,3 +20,19 @@
 - `searchapi.py`の中にある複数のモデルを非同期で投げることができる `複数の問い合わせを非同期に実行する `agrid_query_gemini` 関数`があるらしい
 - 非同期だと一気にバッとできるらしい
 - `uv run ruff check --fix`
+
+&nbsp;
+
+&nbsp;
+
+## 実行の仕方
+
+```bash
+$ uv init -p python3.13
+$ uv add "fastapi[all]"
+$ uv add "langchain-google-genai"
+$ uv add --optional dev ruff pyright pytest pytest-asyncio httpx
+uv sync --extra 'dev'
+```
+
+これでlocal host に飛び、`/docs`をつけるとreferenceが開ける
